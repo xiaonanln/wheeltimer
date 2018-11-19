@@ -6,9 +6,10 @@ import (
 )
 
 func TestAfter(t *testing.T) {
+	wt := NewWheelTimer()
 	d := time.Millisecond * 100
 	now := time.Now()
-	ch := After(d)
+	ch := wt.After(d)
 	<-ch
 	dt := time.Now().Sub(now)
 	if dt < d || dt > d+time.Second {
@@ -17,10 +18,11 @@ func TestAfter(t *testing.T) {
 }
 
 func TestAfterFunc(t *testing.T) {
+	wt := NewWheelTimer()
 	d := time.Millisecond * 100
 	now := time.Now()
 	ch := make(chan struct{}, 1)
-	AfterFunc(d, func() {
+	wt.AfterFunc(d, func() {
 		ch <- struct{}{}
 	})
 	<-ch
