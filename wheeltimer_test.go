@@ -5,6 +5,18 @@ import (
 	"time"
 )
 
+func TestWheelTimer_AfterLargeTime(t *testing.T) {
+	wt := NewWheelTimer()
+	d := time.Millisecond * wheelSize * 2
+	now := time.Now()
+	ch := wt.After(d)
+	<-ch
+	dt := time.Now().Sub(now)
+	if dt < d || dt > d+time.Second {
+		t.Fatalf("wrong time")
+	}
+}
+
 func TestAfter(t *testing.T) {
 	wt := NewWheelTimer()
 	d := time.Millisecond * 100
@@ -33,9 +45,10 @@ func TestAfterFunc(t *testing.T) {
 }
 
 func TestNewTimer(t *testing.T) {
+	wt := NewWheelTimer()
 	d := time.Millisecond * 100
 	now := time.Now()
-	timer := NewTimer(d)
+	timer := wt.NewTimer(d)
 	<-timer.C
 	dt := time.Now().Sub(now)
 	if dt < d || dt > d+time.Second {
@@ -44,9 +57,10 @@ func TestNewTimer(t *testing.T) {
 }
 
 func TestTick(t *testing.T) {
+	wt := NewWheelTimer()
 	d := time.Millisecond * 100
 
-	ch := Tick(d)
+	ch := wt.Tick(d)
 	t0 := time.Now()
 	for i := 0; i < 3; i++ {
 		<-ch
