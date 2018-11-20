@@ -2,7 +2,6 @@ package wheeltimer
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,7 +11,7 @@ import (
 const wtDebug = true
 
 const (
-	wheelSize = 200
+	wheelSize = 10000
 )
 
 type Timer struct {
@@ -207,9 +206,13 @@ func (wt *WheelTimer) fireTimers(now int64) {
 	lv2steps := (now - wt.lv2wheel.curtime) / wheelSize
 	for i := int64(0); i < lv2steps; i++ {
 		timers := wt.lv2wheel.step()
-		for t := timers.head; t != nil; t = t.next {
+		t := timers.head
+		for t != nil {
 			// re-add the timer to the wheel timer
+			next := t.next
+			t.next, t.prev = nil, nil
 			wt.addTimer(t)
+			t = next
 		}
 	}
 }
@@ -232,7 +235,7 @@ func (wt *WheelTimer) addTimer(t *Timer) {
 	wt.addMu.Lock()
 	defer wt.addMu.Unlock()
 
-	log.Printf("addTimer: %p, cur queue: %v", t, wt.addQueue)
+	//log.Printf("addTimer: %p, cur queue: %v", t, wt.addQueue)
 	wt.addQueue.add(t)
 }
 
