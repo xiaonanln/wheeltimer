@@ -29,6 +29,20 @@ func TestAfter(t *testing.T) {
 	}
 }
 
+func TestAfter2(t *testing.T) {
+	wt := NewWheelTimer()
+	d := time.Millisecond * 100
+	now := time.Now()
+	ch1 := wt.After(d)
+	ch2 := wt.After(d)
+	<-ch1
+	dt := time.Now().Sub(now)
+	if dt < d-d/10 || dt > d+time.Second {
+		t.Fatalf("wrong time")
+	}
+	<-ch2
+}
+
 func TestAfterFunc(t *testing.T) {
 	wt := NewWheelTimer()
 	d := time.Millisecond * 100
@@ -65,7 +79,7 @@ func TestTick(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		<-ch
 		dt := time.Now().Sub(t0)
-		if dt < d || dt > d+time.Second {
+		if dt < d-d/10 || dt > d+time.Second {
 			t.Fatalf("wrong time")
 		}
 		t0 = time.Now()
@@ -73,15 +87,16 @@ func TestTick(t *testing.T) {
 }
 
 func TestNewTicker(t *testing.T) {
+	wt := NewWheelTimer()
 	d := time.Millisecond * 100
 
-	ticker := NewTicker(d)
+	ticker := wt.NewTicker(d)
 	t0 := time.Now()
 	for i := 0; i < 3; i++ {
 		<-ticker.C
 		dt := time.Now().Sub(t0)
-		if dt < d || dt > d+time.Second {
-			t.Fatalf("wrong time")
+		if dt < d-d/10 || dt > d+time.Second {
+			t.Fatalf("wrong time: %v", dt)
 		}
 		t0 = time.Now()
 	}

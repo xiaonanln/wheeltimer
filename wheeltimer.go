@@ -2,6 +2,8 @@ package wheeltimer
 
 import (
 	"fmt"
+	"log"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -30,24 +32,26 @@ func (t *Timer) setf(f func()) {
 }
 
 func (t *Timer) Stop() {
-	t.f = nil
+	t.setf(nil)
 	t.b.removeTimer(t)
 }
 
 type WheelTimer struct {
 	lv1wheel lv1wheel
 	lv2wheel lv2wheel
+	addMu    sync.Mutex
+	addQueue timerlist
 }
 
 type lv1wheel struct {
 	buckets [wheelSize]bucket
-	cursor  int
+	cursor  int64
 	curtime int64
 }
 
 type lv2wheel struct {
 	buckets [wheelSize]bucket
-	cursor  int
+	cursor  int64
 	curtime int64
 }
 
@@ -135,8 +139,41 @@ func (wt *WheelTimer) Tick(d time.Duration) <-chan time.Time {
 	return timer.C
 }
 
-func NewTicker(d time.Duration) *time.Ticker {
-	return time.NewTicker(d)
+type Ticker struct {
+	C chan time.Time
+}
+
+func (wt *WheelTimer) NewTicker(d time.Duration) *Ticker {
+	ms := int64((d + time.Millisecond - 1) / time.Millisecond)
+	if ms <= 0 {
+		ms = 1
+	}
+	ticker := &Ticker{
+		C: make(chan time.Time, 1),
+	}
+	timer := &Timer{
+		C: nil,
+		b: nil,
+		t: now() + ms,
+		f: nil,
+	}
+
+	timer.setf(func() {
+		select {
+		case ticker.C <- time.Now():
+		default:
+		}
+
+		// re-add the timer
+		if timer.b != nil {
+			panic("timer.b != nil")
+		}
+		timer.t += ms
+		wt.addTimer(timer)
+	})
+
+	wt.addTimer(timer)
+	return ticker
 }
 
 func (wt *WheelTimer) routine() {
@@ -149,6 +186,7 @@ func (wt *WheelTimer) routine() {
 
 func (wt *WheelTimer) fireTimers(now int64) {
 	//log.Printf("wt fire timers: now=%d, lv1wheel.curtime=%d, lv2wheel.curtime=%d, lv1steps=%d", now, wt.lv1wheel.curtime, wt.lv2wheel.curtime, now-wt.lv1wheel.curtime)
+	wt.processAddQueue()
 
 	lv1steps := now - wt.lv1wheel.curtime // steps to go forward, this should normally be 1
 	for i := int64(0); i < lv1steps; i++ {
@@ -191,9 +229,33 @@ func (w *lv2wheel) step() (timers timerlist) {
 }
 
 func (wt *WheelTimer) addTimer(t *Timer) {
+	wt.addMu.Lock()
+	defer wt.addMu.Unlock()
+
+	log.Printf("addTimer: %p, cur queue: %v", t, wt.addQueue)
+	wt.addQueue.add(t)
+}
+
+func (wt *WheelTimer) addTimerImpl(t *Timer) {
 	if !wt.lv1wheel.addTimer(t) {
 		//log.Printf("add to lv1wheel failed, adding to lv2wheel")
 		wt.lv2wheel.addTimer(t)
+	}
+}
+
+func (wt *WheelTimer) processAddQueue() {
+	var timers timerlist
+	wt.addMu.Lock()
+	timers, wt.addQueue = wt.addQueue, timerlist{}
+	wt.addMu.Unlock()
+
+	t := timers.head
+	for t != nil {
+		next := t.next
+		t.prev, t.next = nil, nil
+		//log.Printf("processAddQueue: %p, %p", t, t.next)
+		wt.addTimerImpl(t)
+		t = next
 	}
 }
 
@@ -205,7 +267,7 @@ func (w *lv1wheel) addTimer(t *Timer) bool {
 	} else if d < 0 {
 		d = 0
 	}
-	w.buckets[d].addTimer(t)
+	w.buckets[(w.cursor+d)%wheelSize].addTimer(t)
 	return true
 }
 
@@ -219,5 +281,5 @@ func (w *lv2wheel) addTimer(t *Timer) {
 	if d >= wheelSize {
 		d = wheelSize - 1
 	}
-	w.buckets[d].addTimer(t)
+	w.buckets[(w.cursor+d)%wheelSize].addTimer(t)
 }

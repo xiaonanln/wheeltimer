@@ -14,7 +14,7 @@ var (
 )
 
 func (tl *timerlist) add(t *Timer) {
-	if wtDebug && t.next != nil || t.prev != nil {
+	if wtDebug && (t.next != nil || t.prev != nil) {
 		panic("timerlist add Timer failed: next or prev is not nil")
 	}
 
@@ -31,7 +31,7 @@ func (tl *timerlist) add(t *Timer) {
 			panic(errWrongTimerlist)
 		}
 
-		tail.next = t.prev
+		tail.next = t
 		t.prev = tail
 		tl.tail = t
 	}
