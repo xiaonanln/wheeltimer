@@ -1,5 +1,5 @@
 # go-wheeltimer
-wheel timer that works just like time.After, time.Tick, time.NewTicker（implementing）
+wheel timer that works just like time.After, time.Tick, time.NewTicker
 
 Steps: 
 1. Read paper 《Hashed and Hierarchical Timing Wheels: Efficient
