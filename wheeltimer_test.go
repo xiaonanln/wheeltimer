@@ -1,13 +1,14 @@
 package wheeltimer
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 )
 
 func TestWheelTimer_AfterLargeTime(t *testing.T) {
 	wt := NewWheelTimer()
-	d := time.Millisecond * wheelSize * 2
+	d := time.Millisecond * 1000
 	now := time.Now()
 	ch := wt.After(d)
 	<-ch
@@ -99,5 +100,28 @@ func TestNewTicker(t *testing.T) {
 			t.Fatalf("wrong time: %v", dt)
 		}
 		t0 = time.Now()
+	}
+}
+
+func TestWheelTimerPerformance(t *testing.T) {
+	//runtime.GOMAXPROCS(1)
+	wt := NewWheelTimer()
+	for {
+		for i := 0; i < 1000; i++ {
+			wt.After(time.Millisecond * time.Duration(rand.Intn(1000)))
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestTimeAfterPerformance(t *testing.T) {
+	//runtime.GOMAXPROCS(1)
+	for {
+		for i := 0; i < 1000; i++ {
+			time.After(time.Millisecond * time.Duration(rand.Intn(1000)))
+		}
+
+		time.Sleep(time.Millisecond)
 	}
 }
